@@ -40,7 +40,8 @@ static ssize_t nulldump_write(struct file *file, const char __user *buf, size_t 
 		return 0;
 
 	to_copy = len < DUMP_MAX ? len : DUMP_MAX;
-	if (copy_from_user(kbuf, buf, to_copy)) {
+	if (copy_from_user(kbuf, buf, to_copy)) 
+	{
 		pr_warn("nulldump: copy_from_user failed, pid=%d (%s)\n",
 			current->pid, current->comm);
 		return -EFAULT;
@@ -63,7 +64,8 @@ static int __init nulldump_init(void)
 {
 	int ret;
 
-	if ((ret = alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME))) {
+	if ((ret = alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME))) 
+	{
 		pr_err("nulldump: alloc_chrdev_region failed\n");
 		return ret;
 	}
@@ -73,18 +75,21 @@ static int __init nulldump_init(void)
 	cdev_init(&nulldump_cdev, &nulldump_fops);
 	nulldump_cdev.owner = THIS_MODULE;
 
-	if ((ret = cdev_add(&nulldump_cdev, dev, 1))) {
+	if ((ret = cdev_add(&nulldump_cdev, dev, 1))) 
+	{
 		pr_err("nulldump: cdev_add failed\n");
 		goto err_unregister;
 	}
 
-	if (IS_ERR(nulldump_class = class_create(CLASS_NAME))) {
+	if (IS_ERR(nulldump_class = class_create(CLASS_NAME))) 
+	{
 		pr_err("nulldump: class_create failed\n");
 		ret = PTR_ERR(nulldump_class);
 		goto err_cdev_del;
 	}
 
-	if (IS_ERR(sdev = device_create(nulldump_class, NULL, dev, NULL, DEVICE_NAME))) {
+	if (IS_ERR(sdev = device_create(nulldump_class, NULL, dev, NULL, DEVICE_NAME))) 
+	{
 		pr_err("nulldump: device_create failed\n");
 		ret = PTR_ERR(sdev);
 		goto err_class_destroy;
