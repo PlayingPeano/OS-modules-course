@@ -37,9 +37,11 @@ static ssize_t nulldump_write(struct file *file, const char __user *buf, size_t 
 		len, current->pid, current->comm);
 
 	size_t offset = 0;
-	while (offset < len) {
+	while (offset < len) 
+	{
 		to_copy = min(DUMP_MAX, len - offset);
-		if (copy_from_user(kbuf, buf + offset, to_copy)) {
+		if (copy_from_user(kbuf, buf + offset, to_copy)) 
+		{
 			pr_warn("nulldump: copy_from_user failed, ...");
 			return -EFAULT;
 		}
