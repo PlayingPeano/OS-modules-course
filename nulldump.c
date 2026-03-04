@@ -36,21 +36,16 @@ static ssize_t nulldump_write(struct file *file, const char __user *buf, size_t 
 	pr_info("nulldump: write len=%zu by pid=%d (%s)\n",
 		len, current->pid, current->comm);
 
-	if (len == 0)
-		return 0;
-
-	to_copy = len < DUMP_MAX ? len : DUMP_MAX;
-	if (copy_from_user(kbuf, buf, to_copy)) 
-	{
-		pr_warn("nulldump: copy_from_user failed, pid=%d (%s)\n",
-			current->pid, current->comm);
-		return -EFAULT;
+	size_t offset = 0;
+	while (offset < len) {
+		to_copy = min(DUMP_MAX, len - offset);
+		if (copy_from_user(kbuf, buf + offset, to_copy)) {
+			pr_warn("nulldump: copy_from_user failed, ...");
+			return -EFAULT;
+		}
+		print_hex_dump(KERN_INFO, "nulldump: ", DUMP_PREFIX_OFFSET, 16, 1, kbuf, to_copy, true);
+		offset += to_copy;
 	}
-
-	print_hex_dump(KERN_INFO, "nulldump: ", DUMP_PREFIX_OFFSET, 16, 1, kbuf, to_copy, true);
-	if (len > DUMP_MAX)
-		pr_info("nulldump: ... (hex dump truncated, total %zu bytes)\n", len);
-
 	return len;
 }
 
