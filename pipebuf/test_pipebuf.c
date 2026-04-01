@@ -197,16 +197,11 @@ static void test_ioctl_bufsize(void)
 
 int main(void)
 {
-	printf("pipebuf test suite\n");
-	printf("==================\n\n");
-
 	test_basic_rw();
 	test_blocking_read();
 	test_eof_no_writers();
 	test_single_reader();
 	test_blocking_write();
 	test_ioctl_bufsize();
-
-	printf("\nAll tests done.\n");
 	return 0;
 }
