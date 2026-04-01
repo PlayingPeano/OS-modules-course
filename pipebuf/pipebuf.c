@@ -18,7 +18,7 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("PlayingPeano");
-MODULE_DESCRIPTION("Pipe-like buffered character devices");
+MODULE_DESCRIPTION("pipebuf");
 MODULE_VERSION("0.1");
 
 #define DEVICE_NAME  "pipebuf"
