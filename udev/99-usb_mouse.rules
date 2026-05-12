@@ -1,0 +1,13 @@
+SUBSYSTEM!="input", GOTO="usb_mouse_end"
+ACTION!="add|remove", GOTO="usb_mouse_end"
+
+ACTION=="add", KERNEL=="event*", ENV{ID_INPUT_MOUSE}=="1", \
+    ENV{ID_VENDOR_ID}=="1ea7", ENV{ID_MODEL_ID}=="0064", \
+    RUN+="/usr/bin/logger -t udev 'USB mouse added: %k'"
+
+ACTION=="remove", KERNEL=="event*", ENV{ID_INPUT_MOUSE}=="1", \
+    ENV{ID_VENDOR_ID}=="1ea7", ENV{ID_MODEL_ID}=="0064", \
+    RUN+="/usr/bin/wall 'USB mouse removed: %k'", \
+    RUN+="/usr/bin/logger -t udev 'USB mouse removed: %k'"
+
+LABEL="usb_mouse_end"
