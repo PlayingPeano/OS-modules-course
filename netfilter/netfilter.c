@@ -40,15 +40,18 @@ static unsigned int tcp_connlog_hookfn(void *priv,
 	if (!tcph)
 		return NF_ACCEPT;
 
-	if (!(tcph->syn) || tcph->ack)
-		return NF_ACCEPT;
+	if (dst_port != 0 && ntohs(tcph->dest) == dst_port) {
+		if (tcph->syn && !tcph->ack)
+			pr_info("tcp_conn_blocked: %pI4:%u -> %pI4:%u (dport filter)\n",
+				&iph->saddr, ntohs(tcph->source),
+				&iph->daddr, ntohs(tcph->dest));
+		return NF_DROP;
+	}
 
-	if (dst_port != 0 && ntohs(tcph->dest) != dst_port)
-		return NF_ACCEPT;
-
-	pr_info("tcp_conn: %pI4:%u -> %pI4:%u\n",
-		&iph->saddr, ntohs(tcph->source),
-		&iph->daddr, ntohs(tcph->dest));
+	if (tcph->syn && !tcph->ack)
+		pr_info("tcp_conn: %pI4:%u -> %pI4:%u\n",
+			&iph->saddr, ntohs(tcph->source),
+			&iph->daddr, ntohs(tcph->dest));
 
 	return NF_ACCEPT;
 }
