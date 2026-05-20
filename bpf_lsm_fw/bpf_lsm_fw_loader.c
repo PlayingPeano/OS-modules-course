@@ -3,8 +3,10 @@
 #include <linux/limits.h>
 #include <net/if.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <string.h>
 #include <unistd.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
@@ -15,9 +17,11 @@
 #define BPFFS_DIR "/sys/fs/bpf/bpf_lsm_fw"
 #define MAP_PIN_PATH BPFFS_DIR "/" MAP_NAME
 #define LINK_PIN_PATH BPFFS_DIR "/socket_connect_link"
+#define EXE_PATH_MAX 4096
 
 struct rule_key {
-	char comm[16];
+	__u64 exe_ino;
+	__u64 exe_dev;
 	__u32 dst_ip;
 };
 
@@ -27,8 +31,8 @@ static void usage(const char *prog)
 		"Usage:\n"
 		"  %s load\n"
 		"  %s unload\n"
-		"  %s deny <comm> <ipv4>\n"
-		"  %s allow <comm> <ipv4>\n"
+		"  %s deny <exe_path> <ipv4>\n"
+		"  %s allow <exe_path> <ipv4>\n"
 		"  %s list\n",
 		prog, prog, prog, prog, prog);
 }
@@ -161,12 +165,25 @@ static int open_map(void)
 	return map_fd;
 }
 
-static int parse_rule_key(const char *comm, const char *ipv4, struct rule_key *key)
+static int parse_rule_key(const char *exe_path, const char *ipv4, struct rule_key *key)
 {
 	struct in_addr addr = {};
+	struct stat st = {};
+	char resolved[EXE_PATH_MAX] = {};
+	size_t exe_path_len;
 
-	if (strlen(comm) >= sizeof(key->comm)) {
-		fprintf(stderr, "comm too long (max %zu)\n", sizeof(key->comm) - 1);
+	exe_path_len = strnlen(exe_path, EXE_PATH_MAX + 1);
+	if (exe_path_len == 0) {
+		fprintf(stderr, "empty executable path is not allowed\n");
+		return -EINVAL;
+	}
+	if (exe_path_len > EXE_PATH_MAX) {
+		fprintf(stderr, "executable path is too long (max %d bytes)\n", EXE_PATH_MAX);
+		return -ENAMETOOLONG;
+	}
+
+	if (!realpath(exe_path, resolved)) {
+		fprintf(stderr, "realpath(%s) failed: %s\n", exe_path, strerror(errno));
 		return -EINVAL;
 	}
 
@@ -175,19 +192,25 @@ static int parse_rule_key(const char *comm, const char *ipv4, struct rule_key *k
 		return -EINVAL;
 	}
 
+	if (stat(resolved, &st) != 0) {
+		fprintf(stderr, "stat(%s) failed: %s\n", resolved, strerror(errno));
+		return -EINVAL;
+	}
+
 	memset(key, 0, sizeof(*key));
-	strncpy(key->comm, comm, sizeof(key->comm) - 1);
+	key->exe_ino = st.st_ino;
+	key->exe_dev = ((__u64)major(st.st_dev) << 20) | (__u64)minor(st.st_dev);
 	key->dst_ip = addr.s_addr;
 	return 0;
 }
 
-static int cmd_deny(const char *comm, const char *ipv4)
+static int cmd_deny(const char *exe_path, const char *ipv4)
 {
 	struct rule_key key;
 	__u8 value = 1;
 	int map_fd, err;
 
-	err = parse_rule_key(comm, ipv4, &key);
+	err = parse_rule_key(exe_path, ipv4, &key);
 	if (err)
 		return err;
 
@@ -202,16 +225,17 @@ static int cmd_deny(const char *comm, const char *ipv4)
 		return -errno;
 	}
 
-	printf("Rule added: deny comm='%s' -> %s\n", comm, ipv4);
+	printf("Rule added: deny exe='%s' -> %s (dev=%llu ino=%llu)\n",
+	       exe_path, ipv4, key.exe_dev, key.exe_ino);
 	return 0;
 }
 
-static int cmd_allow(const char *comm, const char *ipv4)
+static int cmd_allow(const char *exe_path, const char *ipv4)
 {
 	struct rule_key key;
 	int map_fd, err;
 
-	err = parse_rule_key(comm, ipv4, &key);
+	err = parse_rule_key(exe_path, ipv4, &key);
 	if (err)
 		return err;
 
@@ -226,7 +250,8 @@ static int cmd_allow(const char *comm, const char *ipv4)
 		return -errno;
 	}
 
-	printf("Rule removed: allow comm='%s' -> %s\n", comm, ipv4);
+	printf("Rule removed: allow exe='%s' -> %s (dev=%llu ino=%llu)\n",
+	       exe_path, ipv4, key.exe_dev, key.exe_ino);
 	return 0;
 }
 
@@ -245,13 +270,13 @@ static int cmd_list(void)
 	if (map_fd < 0)
 		return -errno;
 
-	printf("Blocked rules (comm -> ipv4):\n");
+	printf("Blocked rules (exe_dev:exe_ino -> ipv4):\n");
 	while (bpf_map_get_next_key(map_fd, key_ptr, &next) == 0) {
 		if (bpf_map_lookup_elem(map_fd, &next, &value) == 0 && value) {
 			addr.s_addr = next.dst_ip;
 			if (!inet_ntop(AF_INET, &addr, ip_buf, sizeof(ip_buf)))
 				snprintf(ip_buf, sizeof(ip_buf), "invalid");
-			printf("  %s -> %s\n", next.comm, ip_buf);
+			printf("  %llu:%llu -> %s\n", next.exe_dev, next.exe_ino, ip_buf);
 			has_any = 1;
 		}
 		cur = next;
