@@ -4,6 +4,10 @@
 #include <bpf/bpf_tracing.h>
 #include <linux/errno.h>
 
+#ifndef AF_INET
+#define AF_INET 2
+#endif
+
 char LICENSE[] SEC("license") = "GPL";
 
 struct rule_key {
